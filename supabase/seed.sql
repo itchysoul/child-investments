@@ -1,4 +1,4 @@
-insert into public.children (id, name, slug, accent_color, avatar_emoji)
+insert into child_investments.children (id, name, slug, accent_color, avatar_emoji)
 values
   ('72dc6c0e-e75a-4e2c-9d5f-1aa1eb2eb001', 'Finn', 'finn', '#4f46e5', '🚀'),
   ('72dc6c0e-e75a-4e2c-9d5f-1aa1eb2eb002', 'Lucy', 'lucy', '#db2777', '🌸'),
@@ -10,7 +10,7 @@ on conflict (id) do update set
   accent_color = excluded.accent_color,
   avatar_emoji = excluded.avatar_emoji;
 
-insert into public.transactions (
+insert into child_investments.transactions (
   id,
   child_id,
   effective_at,
@@ -44,7 +44,7 @@ on conflict (id) do update set
   cd_lot_id = excluded.cd_lot_id,
   metadata = excluded.metadata;
 
-insert into public.price_snapshots (id, asset_type, priced_at, price_usd_cents, source)
+insert into child_investments.price_snapshots (id, asset_type, priced_at, price_usd_cents, source)
 values
   ('7fb2bd22-88d0-4f77-8d92-4ee8b99f0001', 'bitcoin', '2026-03-09T12:00:00.000Z', 6917030, 'spreadsheet_midpoint')
 on conflict (id) do update set

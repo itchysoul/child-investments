@@ -47,13 +47,41 @@ Use these variables in local development and in Netlify:
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+VITE_SUPABASE_SCHEMA=child_investments
 VITE_APP_BASENAME=
 ```
+
+`VITE_SUPABASE_SCHEMA` defaults to `child_investments`. Leave it as-is unless you intentionally rename the schema.
 
 ### `VITE_APP_BASENAME`
 
 - Leave blank for a normal root deploy like `https://bank.micahneely.ai`
 - Set to `/bank` only if you intentionally host this app behind a parent site at `https://micahneely.ai/bank`
+
+## Shared Supabase project setup
+
+If you want to save money, this app can live in the **same Supabase project** as another app like `itchysoul/hypermemo`.
+
+The isolation strategy is:
+
+- `child-investments` uses its own Postgres schema: `child_investments`
+- `hypermemo` keeps using its own existing tables/schema
+- the app points Supabase requests at `child_investments` by default
+
+This avoids table-name collisions with another app in the same database.
+
+### Shared-project checklist
+
+1. Open your existing Supabase project.
+2. Go to `Settings` -> `API`.
+3. Add `child_investments` to **Exposed schemas**.
+4. Save the project URL and anon key.
+5. Run `supabase/migrations/202603100001_initial_schema.sql` in the SQL Editor.
+6. Run `supabase/seed.sql` in the SQL Editor.
+7. In Netlify, set:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_SCHEMA=child_investments`
 
 ## Recommended production model
 
@@ -137,6 +165,12 @@ In GitHub:
 4. Set the default branch to `master`
 
 ## Hosted Supabase setup
+
+The app now defaults to the dedicated `child_investments` schema so it can safely share a Supabase project with another app.
+
+If you want the lowest-cost path, use the shared-project checklist above.
+
+If you want stricter separation between environments, use separate Supabase projects as described below.
 
 You should create **two** Supabase projects:
 
