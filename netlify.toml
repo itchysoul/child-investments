@@ -3,6 +3,16 @@
   publish = "dist"
 
 [[redirects]]
-  from = "/*"
+  from = "/"
+  to = "/bank"
+  status = 301
+
+[[redirects]]
+  from = "/bank"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/bank/*"
   to = "/index.html"
   status = 200
