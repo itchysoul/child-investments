@@ -1,0 +1,500 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  background: #08111f;
+  color: #ecf3ff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.28), transparent 30%),
+    linear-gradient(180deg, #08111f 0%, #111c2f 50%, #08111f 100%);
+  color: #ecf3ff;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  width: min(1240px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand strong,
+.brand small {
+  display: block;
+}
+
+.brand small {
+  color: #9bb0cf;
+}
+
+.brand__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+  font-size: 1.2rem;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.28);
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero-card,
+.chart-card,
+.metric-card,
+.child-card,
+.banner,
+.app-state {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(12, 21, 37, 0.86);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(3, 7, 18, 0.28);
+}
+
+.hero-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.8fr);
+  gap: 20px;
+  padding: 28px;
+  border-radius: 28px;
+}
+
+.hero-card h1,
+.detail-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.05;
+}
+
+.hero-card p,
+.detail-header p,
+.section-heading p,
+.child-card p,
+.activity-row p,
+.activity-row small,
+.lot-row p,
+.metric-card__detail,
+.empty-state,
+label span,
+small {
+  color: #9bb0cf;
+}
+
+.hero-card__stats {
+  display: grid;
+  gap: 12px;
+}
+
+.hero-card__stats div {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.hero-card__stats strong {
+  display: block;
+  font-size: 1.3rem;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  color: #7dd3fc;
+}
+
+.metrics-grid,
+.child-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.child-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric-card {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.metric-card--indigo {
+  background: linear-gradient(180deg, rgba(79, 70, 229, 0.24), rgba(12, 21, 37, 0.9));
+}
+
+.metric-card--teal {
+  background: linear-gradient(180deg, rgba(20, 184, 166, 0.22), rgba(12, 21, 37, 0.9));
+}
+
+.metric-card--gold {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.22), rgba(12, 21, 37, 0.9));
+}
+
+.metric-card--rose {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.22), rgba(12, 21, 37, 0.9));
+}
+
+.metric-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #bfdbfe;
+}
+
+.metric-card__value {
+  margin-top: 16px;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.metric-card__detail {
+  margin-top: 10px;
+  font-size: 0.92rem;
+}
+
+.section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-heading h2,
+.section-heading h3 {
+  margin: 0;
+}
+
+.child-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.child-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, rgba(99, 102, 241, 0.5));
+}
+
+.child-card__top,
+.child-card__identity,
+.activity-row,
+.lot-row,
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.child-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.5rem;
+}
+
+.child-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.child-card__metrics div {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.child-card__metrics span,
+.child-card__metrics small {
+  display: block;
+}
+
+.dashboard-grid,
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.95fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.dashboard-grid__main,
+.dashboard-grid__side,
+.detail-grid__main,
+.detail-grid__side {
+  display: grid;
+  gap: 24px;
+}
+
+.chart-card {
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.chart-shell {
+  height: 280px;
+}
+
+.transaction-card .section-heading {
+  margin-bottom: 20px;
+}
+
+.transaction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.transaction-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.transaction-grid__note {
+  grid-column: 1 / -1;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(8, 17, 31, 0.95);
+  color: #ecf3ff;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid rgba(96, 165, 250, 0.55);
+  border-color: transparent;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.95);
+  color: #f8fafc;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.button--primary {
+  width: 100%;
+  margin-top: 18px;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+}
+
+.banner,
+.app-state,
+.empty-state {
+  border-radius: 18px;
+}
+
+.banner {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+}
+
+.banner--error {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.banner--success {
+  border-color: rgba(74, 222, 128, 0.35);
+  color: #bbf7d0;
+}
+
+.app-state,
+.empty-state {
+  padding: 28px;
+  text-align: center;
+}
+
+.activity-list,
+.lot-list {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-row,
+.lot-row {
+  padding: 14px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  align-items: start;
+}
+
+.activity-row:first-child,
+.lot-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.allocation-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.9fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.allocation-legend {
+  display: grid;
+  gap: 12px;
+}
+
+.allocation-legend div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #bfdbfe;
+}
+
+.detail-header {
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .metrics-grid,
+  .child-grid,
+  .dashboard-grid,
+  .detail-grid,
+  .hero-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100% - 20px, 1240px);
+    padding-top: 18px;
+  }
+
+  .app-header,
+  .detail-header,
+  .child-card__top,
+  .activity-row,
+  .lot-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions,
+  .transaction-grid,
+  .child-card__metrics,
+  .allocation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    display: grid;
+  }
+
+  .transaction-grid {
+    grid-template-columns: 1fr;
+  }
+}
