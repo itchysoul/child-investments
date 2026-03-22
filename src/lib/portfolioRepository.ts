@@ -1,4 +1,13 @@
-import type { CdLotRecord, NewTransactionResult, PortfolioDataBundle, PriceSnapshot, TransactionRecord } from '../types';
+import type {
+  CdLotRecord,
+  NewTransactionResult,
+  PortfolioDataBundle,
+  PriceSnapshot,
+  TransactionRecord,
+  UserAccessRecord,
+  UserAccessRole,
+  UserAccessStatus,
+} from '../types';
 import { seededBundle } from './seedData';
 import { supabase } from './supabase';
 
@@ -46,6 +55,16 @@ interface PriceSnapshotRow {
   source: string;
 }
 
+interface UserAccessRow {
+  email: string;
+  user_id: string | null;
+  role: UserAccessRole;
+  status: UserAccessStatus;
+  requested_at: string;
+  approved_at: string | null;
+  approved_by: string | null;
+}
+
 function cloneBundle(bundle: PortfolioDataBundle): PortfolioDataBundle {
   return JSON.parse(JSON.stringify(bundle)) as PortfolioDataBundle;
 }
@@ -77,6 +96,18 @@ function saveFallbackBundle(bundle: PortfolioDataBundle): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bundle));
 }
 
+function mapUserAccess(row: UserAccessRow): UserAccessRecord {
+  return {
+    email: row.email,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    requestedAt: row.requested_at,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
+  };
+}
+
 export async function loadPortfolioBundle(): Promise<PortfolioDataBundle> {
   if (!supabase) {
     return loadFallbackBundle();
@@ -90,7 +121,13 @@ export async function loadPortfolioBundle(): Promise<PortfolioDataBundle> {
   ]);
 
   if (childrenResult.error || transactionsResult.error || lotsResult.error || pricesResult.error) {
-    return loadFallbackBundle();
+    throw (
+      childrenResult.error ??
+      transactionsResult.error ??
+      lotsResult.error ??
+      pricesResult.error ??
+      new Error('Unable to load the portfolio.')
+    );
   }
 
   return {
@@ -133,6 +170,104 @@ export async function loadPortfolioBundle(): Promise<PortfolioDataBundle> {
       source: row.source,
     })),
   };
+}
+
+export async function ensureCurrentUserAccess(): Promise<UserAccessRecord | null> {
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user.email) {
+    return null;
+  }
+
+  const { error } = await supabase.rpc('ensure_current_user_access');
+
+  if (error) {
+    throw error;
+  }
+
+  return loadCurrentUserAccess();
+}
+
+export async function loadCurrentUserAccess(): Promise<UserAccessRecord | null> {
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user.email) {
+    return null;
+  }
+
+  const normalizedEmail = session.user.email.toLowerCase();
+  const { data, error } = await supabase.from('user_access').select('*').eq('email', normalizedEmail).maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapUserAccess(data as UserAccessRow) : null;
+}
+
+export async function requestWriterAccess(): Promise<UserAccessRecord> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const { error } = await supabase.rpc('request_writer_access');
+
+  if (error) {
+    throw error;
+  }
+
+  const access = await loadCurrentUserAccess();
+
+  if (!access) {
+    throw new Error('Unable to load your access request.');
+  }
+
+  return access;
+}
+
+export async function loadPendingUserAccess(): Promise<UserAccessRecord[]> {
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('user_access')
+    .select('*')
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as UserAccessRow[]).map(mapUserAccess);
+}
+
+export async function approveUserAccess(email: string, role: UserAccessRole = 'writer'): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const { error } = await supabase.rpc('approve_user_access', {
+    target_email: email.toLowerCase(),
+    next_role: role,
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function persistTransactionResult(result: NewTransactionResult): Promise<void> {

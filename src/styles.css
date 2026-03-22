@@ -376,6 +376,73 @@ select:focus {
   background: linear-gradient(135deg, #7c3aed, #2563eb);
 }
 
+.access-card {
+  display: grid;
+  gap: 16px;
+}
+
+.access-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.access-card__identity,
+.approval-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.access-card__identity {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.access-card__message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  background: rgba(37, 99, 235, 0.12);
+  color: #dbeafe;
+}
+
+.access-card__secondary {
+  width: 100%;
+}
+
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.14);
+  color: #bae6fd;
+  font-size: 0.85rem;
+}
+
+.approval-list {
+  display: grid;
+  gap: 12px;
+}
+
+.approval-row {
+  padding: 14px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.approval-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .banner,
 .app-state,
 .empty-state {
@@ -478,7 +545,9 @@ select:focus {
   .detail-header,
   .child-card__top,
   .activity-row,
-  .lot-row {
+  .lot-row,
+  .access-card__identity,
+  .approval-row {
     flex-direction: column;
     align-items: stretch;
   }

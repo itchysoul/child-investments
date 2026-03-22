@@ -116,6 +116,20 @@ export interface TransactionDraft {
   selectedCdLotId: string;
 }
 
+export type UserAccessRole = 'admin' | 'writer';
+
+export type UserAccessStatus = 'pending' | 'approved';
+
+export interface UserAccessRecord {
+  email: string;
+  userId: string | null;
+  role: UserAccessRole;
+  status: UserAccessStatus;
+  requestedAt: string;
+  approvedAt: string | null;
+  approvedBy: string | null;
+}
+
 export interface NewTransactionResult {
   transactions: TransactionRecord[];
   updatedLots?: CdLotRecord[];

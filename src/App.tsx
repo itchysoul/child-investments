@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Coins, Landmark, PiggyBank, RefreshCw, TrendingUp } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Coins, Landmark, LogIn, LogOut, PiggyBank, RefreshCw, ShieldCheck, TrendingUp, UserPlus } from 'lucide-react';
 import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ActivityList } from './components/ActivityList';
 import { AllocationDonut } from './components/AllocationDonut';
@@ -11,22 +11,67 @@ import { TransactionComposer } from './components/TransactionComposer';
 import { buildChildTimeline, buildPortfolioSnapshot, getLatestBitcoinPrice } from './lib/accounting';
 import { formatBitcoinPrice, formatDateLabel, formatPercent, formatSats, formatUsdFromCents } from './lib/format';
 import {
+  approveUserAccess,
   buildTransactionListForDisplay,
+  ensureCurrentUserAccess,
+  loadPendingUserAccess,
   loadPortfolioBundle,
   persistImportedPriceHistory,
   persistPriceSnapshot,
   persistTransactionResult,
+  requestWriterAccess,
 } from './lib/portfolioRepository';
 import { fetchBitcoinMidpointPrice, fetchBitcoinPriceHistory } from './lib/pricing';
+import { supabase } from './lib/supabase';
 import { createDefaultDraft, createTransactionResult } from './lib/transactionEngine';
-import type { ChildMetrics, PortfolioDataBundle, PriceSnapshot, TransactionDraft } from './types';
+import type { ChildMetrics, PortfolioDataBundle, PriceSnapshot, TransactionDraft, UserAccessRecord } from './types';
 
 const today = new Date().toISOString().slice(0, 10);
+const PRICE_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+const PRICE_REFRESH_SOURCE = 'coinbase_midpoint';
 
 function mergePriceSnapshots(current: PriceSnapshot[], incoming: PriceSnapshot[]): PriceSnapshot[] {
   const deduped = new Map(current.map((snapshot) => [snapshot.id, snapshot]));
   incoming.forEach((snapshot) => deduped.set(snapshot.id, snapshot));
   return [...deduped.values()].sort((a, b) => a.pricedAt.localeCompare(b.pricedAt));
+}
+
+function hasWriteAccess(access: UserAccessRecord | null): boolean {
+  return Boolean(access && access.status === 'approved' && (access.role === 'admin' || access.role === 'writer'));
+}
+
+function hasAdminAccess(access: UserAccessRecord | null): boolean {
+  return Boolean(access && access.status === 'approved' && access.role === 'admin');
+}
+
+function getPriceRefreshCooldownRemaining(priceSnapshots: PriceSnapshot[], nowMs: number): number {
+  const latestRefresh = [...priceSnapshots]
+    .filter((snapshot) => snapshot.source === PRICE_REFRESH_SOURCE)
+    .sort((a, b) => a.pricedAt.localeCompare(b.pricedAt))
+    .at(-1);
+
+  if (!latestRefresh) {
+    return 0;
+  }
+
+  const remaining = new Date(latestRefresh.pricedAt).getTime() + PRICE_REFRESH_COOLDOWN_MS - nowMs;
+  return Math.max(0, remaining);
+}
+
+function formatCooldown(ms: number): string {
+  const totalSeconds = Math.max(1, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds}s`;
+  }
+
+  if (seconds === 0) {
+    return `${minutes}m`;
+  }
+
+  return `${minutes}m ${seconds}s`;
 }
 
 function App() {
@@ -36,6 +81,12 @@ function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [busyAction, setBusyAction] = useState<'save' | 'price' | 'history' | null>(null);
+  const [authBusyAction, setAuthBusyAction] = useState<'signin' | 'signout' | 'request' | 'approve' | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [currentAccess, setCurrentAccess] = useState<UserAccessRecord | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<UserAccessRecord[]>([]);
+  const [clockMs, setClockMs] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +128,77 @@ function App() {
     }
   }, [bundle, draft.childId]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setClockMs(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+
+    const authClient = supabase;
+
+    let cancelled = false;
+
+    async function syncAccessState() {
+      try {
+        const {
+          data: { session },
+        } = await authClient.auth.getSession();
+
+        if (cancelled) {
+          return;
+        }
+
+        const normalizedEmail = session?.user.email?.toLowerCase() ?? null;
+        setSessionEmail(normalizedEmail);
+
+        if (!session) {
+          setCurrentAccess(null);
+          setPendingApprovals([]);
+          return;
+        }
+
+        const access = await ensureCurrentUserAccess();
+
+        if (cancelled) {
+          return;
+        }
+
+        setCurrentAccess(access);
+
+        if (hasAdminAccess(access)) {
+          const pending = await loadPendingUserAccess();
+          if (!cancelled) {
+            setPendingApprovals(pending);
+          }
+          return;
+        }
+
+        setPendingApprovals([]);
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to sync your sign-in state.');
+        }
+      }
+    }
+
+    void syncAccessState();
+
+    const {
+      data: { subscription },
+    } = authClient.auth.onAuthStateChange(() => {
+      void syncAccessState();
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const snapshot = useMemo(() => {
     if (!bundle) {
       return null;
@@ -95,6 +217,14 @@ function App() {
   const displayTransactions = useMemo(
     () => (bundle ? buildTransactionListForDisplay(bundle.transactions, bundle.cdLots) : []),
     [bundle],
+  );
+
+  const canWrite = useMemo(() => !supabase || hasWriteAccess(currentAccess), [currentAccess]);
+  const isAdmin = useMemo(() => hasAdminAccess(currentAccess), [currentAccess]);
+
+  const priceRefreshCooldownMs = useMemo(
+    () => getPriceRefreshCooldownRemaining(bundle?.priceSnapshots ?? [], clockMs),
+    [bundle, clockMs],
   );
 
   const bitcoinPriceLabel = latestBitcoinPrice
@@ -134,6 +264,10 @@ function App() {
       setErrorMessage('');
       setStatusMessage('');
 
+      if (!canWrite) {
+        throw new Error('Only approved writers can save transactions.');
+      }
+
       if (draft.assetType === 'bitcoin' && latestBitcoinPrice <= 0) {
         throw new Error('Refresh the bitcoin price before recording a bitcoin trade.');
       }
@@ -152,7 +286,7 @@ function App() {
     } finally {
       setBusyAction(null);
     }
-  }, [applyTransactionResult, bundle, draft, latestBitcoinPrice]);
+  }, [applyTransactionResult, bundle, canWrite, draft, latestBitcoinPrice]);
 
   const handleRefreshPrice = useCallback(async () => {
     if (!bundle) {
@@ -163,6 +297,15 @@ function App() {
       setBusyAction('price');
       setErrorMessage('');
       setStatusMessage('');
+
+      if (!canWrite) {
+        throw new Error('Only approved writers can refresh the bitcoin price.');
+      }
+
+      if (priceRefreshCooldownMs > 0) {
+        throw new Error(`Bitcoin price refresh is rate limited. Try again in ${formatCooldown(priceRefreshCooldownMs)}.`);
+      }
+
       const snapshotResult = await fetchBitcoinMidpointPrice();
       await persistPriceSnapshot(snapshotResult);
       setBundle((current) =>
@@ -179,7 +322,7 @@ function App() {
     } finally {
       setBusyAction(null);
     }
-  }, [bundle]);
+  }, [bundle, canWrite, priceRefreshCooldownMs]);
 
   const handleImportHistory = useCallback(async () => {
     if (!bundle) {
@@ -190,6 +333,11 @@ function App() {
       setBusyAction('history');
       setErrorMessage('');
       setStatusMessage('');
+
+      if (!canWrite) {
+        throw new Error('Only approved writers can import bitcoin history.');
+      }
+
       const history = await fetchBitcoinPriceHistory(90);
       await persistImportedPriceHistory(history);
       setBundle((current) =>
@@ -206,7 +354,128 @@ function App() {
     } finally {
       setBusyAction(null);
     }
-  }, [bundle]);
+  }, [bundle, canWrite]);
+
+  const handleSendMagicLink = useCallback(async () => {
+    if (!supabase) {
+      return;
+    }
+
+    const normalizedEmail = authEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setErrorMessage('Enter your email address to request a magic link.');
+      return;
+    }
+
+    try {
+      setAuthBusyAction('signin');
+      setErrorMessage('');
+      setStatusMessage('');
+      const { error } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: window.location.href,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setStatusMessage(`Magic link sent to ${normalizedEmail}.`);
+      setAuthEmail(normalizedEmail);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to send a magic link.');
+    } finally {
+      setAuthBusyAction(null);
+    }
+  }, [authEmail]);
+
+  const handleSignOut = useCallback(async () => {
+    if (!supabase) {
+      return;
+    }
+
+    try {
+      setAuthBusyAction('signout');
+      setErrorMessage('');
+      setStatusMessage('');
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      setCurrentAccess(null);
+      setPendingApprovals([]);
+      setSessionEmail(null);
+      setStatusMessage('Signed out.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to sign out.');
+    } finally {
+      setAuthBusyAction(null);
+    }
+  }, []);
+
+  const handleRequestWriterAccess = useCallback(async () => {
+    try {
+      setAuthBusyAction('request');
+      setErrorMessage('');
+      setStatusMessage('');
+      const access = await requestWriterAccess();
+      setCurrentAccess(access);
+      setStatusMessage('Writer access requested. An admin must approve you before you can save transactions.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to request writer access.');
+    } finally {
+      setAuthBusyAction(null);
+    }
+  }, []);
+
+  const handleApproveUser = useCallback(async (email: string) => {
+    try {
+      setAuthBusyAction('approve');
+      setErrorMessage('');
+      setStatusMessage('');
+      await approveUserAccess(email);
+      const pending = await loadPendingUserAccess();
+      setPendingApprovals(pending);
+      setStatusMessage(`Approved ${email} for write access.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to approve this writer request.');
+    } finally {
+      setAuthBusyAction(null);
+    }
+  }, []);
+
+  const accessPanel = supabase ? (
+    <>
+      <AccessStatusCard
+        authEmail={authEmail}
+        currentAccess={currentAccess}
+        busyAction={authBusyAction}
+        onAuthEmailChange={setAuthEmail}
+        onRequestWriterAccess={() => void handleRequestWriterAccess()}
+        onSendMagicLink={() => void handleSendMagicLink()}
+        onSignOut={() => void handleSignOut()}
+        sessionEmail={sessionEmail}
+      />
+      {isAdmin ? (
+        <PendingApprovalsCard
+          entries={pendingApprovals}
+          busy={authBusyAction === 'approve'}
+          onApprove={(email) => void handleApproveUser(email)}
+        />
+      ) : null}
+    </>
+  ) : null;
+
+  const refreshPriceLabel = busyAction === 'price'
+    ? 'Refreshing price...'
+    : priceRefreshCooldownMs > 0
+      ? `Refresh BTC price (${formatCooldown(priceRefreshCooldownMs)})`
+      : 'Refresh BTC price';
 
   if (loading) {
     return <div className="app-state">Loading the family ledger...</div>;
@@ -227,14 +496,24 @@ function App() {
           </div>
         </Link>
         <div className="header-actions">
-          <button className="button" onClick={() => void handleRefreshPrice()} disabled={busyAction !== null}>
+          <button
+            className="button"
+            onClick={() => void handleRefreshPrice()}
+            disabled={busyAction !== null || !canWrite || priceRefreshCooldownMs > 0}
+          >
             <RefreshCw size={16} />
-            {busyAction === 'price' ? 'Refreshing price...' : 'Refresh BTC price'}
+            {refreshPriceLabel}
           </button>
-          <button className="button" onClick={() => void handleImportHistory()} disabled={busyAction !== null}>
+          <button className="button" onClick={() => void handleImportHistory()} disabled={busyAction !== null || !canWrite}>
             <TrendingUp size={16} />
             {busyAction === 'history' ? 'Importing history...' : 'Import 90d history'}
           </button>
+          {sessionEmail ? (
+            <button className="button" onClick={() => void handleSignOut()} disabled={authBusyAction !== null}>
+              <LogOut size={16} />
+              {authBusyAction === 'signout' ? 'Signing out...' : 'Sign out'}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -255,6 +534,8 @@ function App() {
               childNameById={childNameById}
               priceSnapshots={bundle.priceSnapshots}
               bitcoinPriceLabel={bitcoinPriceLabel}
+              accessPanel={accessPanel}
+              canWrite={canWrite}
             />
           }
         />
@@ -271,6 +552,8 @@ function App() {
               transactions={displayTransactions}
               childNameById={childNameById}
               bitcoinPriceLabel={bitcoinPriceLabel}
+              accessPanel={accessPanel}
+              canWrite={canWrite}
             />
           }
         />
@@ -290,6 +573,8 @@ interface DashboardPageProps {
   childNameById: Map<string, string>;
   priceSnapshots: PriceSnapshot[];
   bitcoinPriceLabel: string;
+  accessPanel: ReactNode;
+  canWrite: boolean;
 }
 
 function DashboardPage({
@@ -302,6 +587,8 @@ function DashboardPage({
   childNameById,
   priceSnapshots,
   bitcoinPriceLabel,
+  accessPanel,
+  canWrite,
 }: DashboardPageProps) {
   const familyNetContributions = snapshot.children.reduce((sum, child) => sum + child.netContributionsCents, 0);
   const familyGainLoss = snapshot.familyTotalValueCents - familyNetContributions;
@@ -380,15 +667,18 @@ function DashboardPage({
           <ActivityList transactions={transactions} childNameById={childNameById} />
         </div>
         <div className="dashboard-grid__side">
-          <TransactionComposer
-            children={snapshot.children.map((entry) => entry.child)}
-            draft={draft}
-            cdLots={snapshot.children.flatMap((entry) => entry.lots)}
-            onDraftChange={onDraftChange}
-            onSubmit={onSubmit}
-            disabled={saving}
-            bitcoinPriceLabel={bitcoinPriceLabel}
-          />
+          {accessPanel}
+          {canWrite ? (
+            <TransactionComposer
+              children={snapshot.children.map((entry) => entry.child)}
+              draft={draft}
+              cdLots={snapshot.children.flatMap((entry) => entry.lots)}
+              onDraftChange={onDraftChange}
+              onSubmit={onSubmit}
+              disabled={saving}
+              bitcoinPriceLabel={bitcoinPriceLabel}
+            />
+          ) : null}
         </div>
       </section>
     </main>
@@ -405,6 +695,8 @@ interface ChildDetailPageProps {
   transactions: ReturnType<typeof buildTransactionListForDisplay>;
   childNameById: Map<string, string>;
   bitcoinPriceLabel: string;
+  accessPanel: ReactNode;
+  canWrite: boolean;
 }
 
 function ChildDetailPage({
@@ -417,6 +709,8 @@ function ChildDetailPage({
   transactions,
   childNameById,
   bitcoinPriceLabel,
+  accessPanel,
+  canWrite,
 }: ChildDetailPageProps) {
   const { slug } = useParams();
   const metrics = snapshot.children.find((entry) => entry.child.slug === slug);
@@ -474,21 +768,146 @@ function ChildDetailPage({
           <ActivityList transactions={childTransactions} childNameById={childNameById} />
         </div>
         <div className="detail-grid__side">
+          {accessPanel}
           <AllocationDonut metrics={metrics} />
-          <TransactionComposer
-            children={snapshot.children.map((entry) => entry.child)}
-            draft={scopedDraft}
-            cdLots={metrics.lots}
-            onDraftChange={(nextDraft) => onDraftChange({ ...nextDraft, childId: metrics.child.id })}
-            onSubmit={onSubmit}
-            disabled={saving}
-            bitcoinPriceLabel={bitcoinPriceLabel}
-            fixedChildId={metrics.child.id}
-          />
+          {canWrite ? (
+            <TransactionComposer
+              children={snapshot.children.map((entry) => entry.child)}
+              draft={scopedDraft}
+              cdLots={metrics.lots}
+              onDraftChange={(nextDraft) => onDraftChange({ ...nextDraft, childId: metrics.child.id })}
+              onSubmit={onSubmit}
+              disabled={saving}
+              bitcoinPriceLabel={bitcoinPriceLabel}
+              fixedChildId={metrics.child.id}
+            />
+          ) : null}
           <CdLotsCard metrics={metrics} />
         </div>
       </section>
     </main>
+  );
+}
+
+interface AccessStatusCardProps {
+  authEmail: string;
+  currentAccess: UserAccessRecord | null;
+  busyAction: 'signin' | 'signout' | 'request' | 'approve' | null;
+  onAuthEmailChange: (email: string) => void;
+  onRequestWriterAccess: () => void;
+  onSendMagicLink: () => void;
+  onSignOut: () => void;
+  sessionEmail: string | null;
+}
+
+function AccessStatusCard({
+  authEmail,
+  currentAccess,
+  busyAction,
+  onAuthEmailChange,
+  onRequestWriterAccess,
+  onSendMagicLink,
+  onSignOut,
+  sessionEmail,
+}: AccessStatusCardProps) {
+  const approvedWriter = hasWriteAccess(currentAccess);
+  const admin = hasAdminAccess(currentAccess);
+
+  return (
+    <div className="chart-card access-card">
+      <div className="section-heading">
+        <div>
+          <h3>Write access</h3>
+          <p>Anyone can read the ledger. Signed-in users must be approved before they can write transactions.</p>
+        </div>
+      </div>
+
+      {sessionEmail ? (
+        <>
+          <div className="access-card__identity">
+            <strong>{sessionEmail}</strong>
+            <span className="access-chip">{admin ? 'Admin' : approvedWriter ? 'Approved writer' : currentAccess?.status === 'pending' ? 'Pending approval' : 'Read only'}</span>
+          </div>
+          {approvedWriter ? (
+            <div className="access-card__message">
+              <ShieldCheck size={16} />
+              <span>{admin ? 'You can approve users and write transactions.' : 'You can write transactions and refresh pricing data.'}</span>
+            </div>
+          ) : currentAccess?.status === 'pending' ? (
+            <div className="access-card__message">
+              <UserPlus size={16} />
+              <span>Your writer request is pending admin approval.</span>
+            </div>
+          ) : (
+            <button className="button button--primary" onClick={onRequestWriterAccess} disabled={busyAction !== null}>
+              <UserPlus size={16} />
+              {busyAction === 'request' ? 'Requesting write access...' : 'Request writer access'}
+            </button>
+          )}
+          <button className="button access-card__secondary" onClick={onSignOut} disabled={busyAction !== null}>
+            <LogOut size={16} />
+            {busyAction === 'signout' ? 'Signing out...' : 'Sign out'}
+          </button>
+        </>
+      ) : (
+        <>
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              value={authEmail}
+              placeholder="you@example.com"
+              onChange={(event) => onAuthEmailChange(event.target.value)}
+              disabled={busyAction !== null}
+            />
+          </label>
+          <button className="button button--primary" onClick={onSendMagicLink} disabled={busyAction !== null}>
+            <LogIn size={16} />
+            {busyAction === 'signin' ? 'Sending magic link...' : 'Sign in for write access'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PendingApprovalsCard({
+  entries,
+  busy,
+  onApprove,
+}: {
+  entries: UserAccessRecord[];
+  busy: boolean;
+  onApprove: (email: string) => void;
+}) {
+  return (
+    <div className="chart-card access-card">
+      <div className="section-heading">
+        <div>
+          <h3>Pending approvals</h3>
+          <p>Approve new writers before they can add transactions or refresh pricing data.</p>
+        </div>
+      </div>
+
+      {entries.length ? (
+        <div className="approval-list">
+          {entries.map((entry) => (
+            <div key={entry.email} className="approval-row">
+              <div>
+                <strong>{entry.email}</strong>
+                <p>Requested {formatDateLabel(entry.requestedAt)}</p>
+              </div>
+              <button className="button" onClick={() => onApprove(entry.email)} disabled={busy}>
+                <ShieldCheck size={16} />
+                Approve
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">No pending writer requests right now.</div>
+      )}
+    </div>
   );
 }
 
