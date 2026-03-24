@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Crown, Gamepad2, LogIn, LogOut, ShieldAlert, Sparkles, Swords, Trophy } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Crown, Gamepad2, LogIn, LogOut, Sparkles, Swords, Trophy } from 'lucide-react';
 import { logicFinalTerms, logicFinalTermCount, type LogicFinalTerm } from './lib/logicFinalData';
 import {
   ensureLogicFinalProfile,
@@ -540,10 +539,6 @@ export default function LogicFinalApp() {
           <p>Match fallacies to their keyword tells, climb the leaderboard, and let spaced repetition grind you into shape.</p>
         </div>
         <div className="logic-header__actions">
-          <Link className="button" to="/bank">
-            <ShieldAlert size={16} />
-            Bank portal
-          </Link>
           {sessionEmail ? (
             <button className="button" onClick={() => void handleSignOut()} disabled={authBusy !== null}>
               <LogOut size={16} />
@@ -579,7 +574,7 @@ export default function LogicFinalApp() {
             <div className="section-heading">
               <div>
                 <h3>Sign in to play</h3>
-                <p>Anyone with a login can play Logic Final. Bank access is separate and still requires your approval.</p>
+                <p>Use your magic-link login to save progress, climb the leaderboard, and keep the cabinet running.</p>
               </div>
             </div>
             <label>
