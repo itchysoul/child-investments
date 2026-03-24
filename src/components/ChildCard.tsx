@@ -11,7 +11,7 @@ export function ChildCard({ metrics }: ChildCardProps) {
   const { child } = metrics;
 
   return (
-    <Link className="child-card" to={`/child/${child.slug}`} style={{ ['--accent' as string]: child.accentColor }}>
+    <Link className="child-card" to={`/bank/child/${child.slug}`} style={{ ['--accent' as string]: child.accentColor }}>
       <div className="child-card__top">
         <div className="child-card__identity">
           <div className="child-card__avatar">{child.avatarEmoji}</div>

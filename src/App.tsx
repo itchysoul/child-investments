@@ -77,6 +77,7 @@ function formatCooldown(ms: number): string {
 function App() {
   const [bundle, setBundle] = useState<PortfolioDataBundle | null>(null);
   const [draft, setDraft] = useState<TransactionDraft>(() => createDefaultDraft('', today));
+  const [authResolved, setAuthResolved] = useState(!supabase);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -89,7 +90,19 @@ function App() {
   const [clockMs, setClockMs] = useState(() => Date.now());
 
   useEffect(() => {
+    if (supabase && !authResolved) {
+      return;
+    }
+
+    if (supabase && !currentAccess) {
+      setBundle(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
+
+    setLoading(true);
 
     async function bootstrap() {
       try {
@@ -115,7 +128,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authResolved, currentAccess]);
 
   useEffect(() => {
     if (!bundle?.children.length) {
@@ -158,6 +171,7 @@ function App() {
         if (!session) {
           setCurrentAccess(null);
           setPendingApprovals([]);
+          setAuthResolved(true);
           return;
         }
 
@@ -168,6 +182,7 @@ function App() {
         }
 
         setCurrentAccess(access);
+        setAuthResolved(true);
 
         if (hasAdminAccess(access)) {
           const pending = await loadPendingUserAccess();
@@ -181,6 +196,7 @@ function App() {
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof Error ? error.message : 'Unable to sync your sign-in state.');
+          setAuthResolved(true);
         }
       }
     }
@@ -219,6 +235,7 @@ function App() {
     [bundle],
   );
 
+  const canReadBank = useMemo(() => !supabase || Boolean(currentAccess && currentAccess.status === 'approved'), [currentAccess]);
   const canWrite = useMemo(() => !supabase || hasWriteAccess(currentAccess), [currentAccess]);
   const isAdmin = useMemo(() => hasAdminAccess(currentAccess), [currentAccess]);
 
@@ -477,6 +494,14 @@ function App() {
       ? `Refresh BTC price (${formatCooldown(priceRefreshCooldownMs)})`
       : 'Refresh BTC price';
 
+  if (supabase && !authResolved) {
+    return <div className="app-state">Checking bank access...</div>;
+  }
+
+  if (supabase && !canReadBank) {
+    return <BankGate accessPanel={accessPanel} sessionEmail={sessionEmail} />;
+  }
+
   if (loading) {
     return <div className="app-state">Loading the family ledger...</div>;
   }
@@ -488,7 +513,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <Link className="brand" to="/">
+        <Link className="brand" to="/bank">
           <span className="brand__mark">◎</span>
           <div>
             <strong>Child Investments</strong>
@@ -496,6 +521,10 @@ function App() {
           </div>
         </Link>
         <div className="header-actions">
+          <Link className="button" to="/logic-final">
+            <PiggyBank size={16} />
+            Logic Final
+          </Link>
           <button
             className="button"
             onClick={() => void handleRefreshPrice()}
@@ -522,7 +551,7 @@ function App() {
 
       <Routes>
         <Route
-          path="/"
+          index
           element={
             <DashboardPage
               snapshot={snapshot}
@@ -540,7 +569,7 @@ function App() {
           }
         />
         <Route
-          path="/child/:slug"
+          path="child/:slug"
           element={
             <ChildDetailPage
               bundle={bundle}
@@ -557,8 +586,72 @@ function App() {
             />
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/bank" replace />} />
       </Routes>
+    </div>
+  );
+}
+
+function BankGate({ accessPanel, sessionEmail }: { accessPanel: ReactNode; sessionEmail: string | null }) {
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <Link className="brand" to="/bank">
+          <span className="brand__mark">◎</span>
+          <div>
+            <strong>Child Investments</strong>
+            <small>Private family ledger</small>
+          </div>
+        </Link>
+        <div className="header-actions">
+          <Link className="button" to="/logic-final">
+            <PiggyBank size={16} />
+            Logic Final
+          </Link>
+        </div>
+      </header>
+
+      <main className="page-shell">
+        <section className="hero-card">
+          <div>
+            <p className="eyebrow">Bank access required</p>
+            <h1>This ledger stays hidden until you are approved.</h1>
+            <p>
+              {sessionEmail
+                ? 'You are signed in, but the bank remains private until your account is approved.'
+                : 'Sign in first, then request access if you should be allowed into the bank.'}
+            </p>
+          </div>
+          <div className="hero-card__stats">
+            <div>
+              <strong>Private</strong>
+              <span>approval required</span>
+            </div>
+            <div>
+              <strong>Logic Final</strong>
+              <span>open to any login</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-grid">
+          <div className="dashboard-grid__main">
+            <div className="chart-card">
+              <div className="section-heading">
+                <div>
+                  <h3>Separate permissions</h3>
+                  <p>The logic game is available to any signed-in user, but bank balances, transactions, and price history stay locked down.</p>
+                </div>
+              </div>
+              <Link className="button button--primary" to="/logic-final">
+                <PiggyBank size={16} />
+                Go to Logic Final
+              </Link>
+            </div>
+          </div>
+          <div className="dashboard-grid__side">{accessPanel}</div>
+        </section>
+      </main>
     </div>
   );
 }
@@ -716,7 +809,7 @@ function ChildDetailPage({
   const metrics = snapshot.children.find((entry) => entry.child.slug === slug);
 
   if (!metrics) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/bank" replace />;
   }
 
   const timeline = buildChildTimeline(metrics.child.id, bundle.transactions, bundle.cdLots, bundle.priceSnapshots, today);
@@ -726,7 +819,7 @@ function ChildDetailPage({
   return (
     <main className="page-shell">
       <div className="detail-header">
-        <Link className="back-link" to="/">
+        <Link className="back-link" to="/bank">
           <ArrowLeft size={16} />
           Back to dashboard
         </Link>
@@ -817,8 +910,8 @@ function AccessStatusCard({
     <div className="chart-card access-card">
       <div className="section-heading">
         <div>
-          <h3>Write access</h3>
-          <p>Anyone can read the ledger. Signed-in users must be approved before they can write transactions.</p>
+          <h3>Bank access</h3>
+          <p>The bank is private. Signed-in users must be approved before they can view or change anything here.</p>
         </div>
       </div>
 
@@ -836,12 +929,12 @@ function AccessStatusCard({
           ) : currentAccess?.status === 'pending' ? (
             <div className="access-card__message">
               <UserPlus size={16} />
-              <span>Your writer request is pending admin approval.</span>
+              <span>Your bank access request is pending admin approval.</span>
             </div>
           ) : (
             <button className="button button--primary" onClick={onRequestWriterAccess} disabled={busyAction !== null}>
               <UserPlus size={16} />
-              {busyAction === 'request' ? 'Requesting write access...' : 'Request writer access'}
+              {busyAction === 'request' ? 'Requesting bank access...' : 'Request bank access'}
             </button>
           )}
           <button className="button access-card__secondary" onClick={onSignOut} disabled={busyAction !== null}>
@@ -863,7 +956,7 @@ function AccessStatusCard({
           </label>
           <button className="button button--primary" onClick={onSendMagicLink} disabled={busyAction !== null}>
             <LogIn size={16} />
-            {busyAction === 'signin' ? 'Sending magic link...' : 'Sign in for write access'}
+            {busyAction === 'signin' ? 'Sending magic link...' : 'Sign in to request bank access'}
           </button>
         </>
       )}

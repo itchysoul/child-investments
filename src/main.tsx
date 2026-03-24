@@ -1,15 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import App from './App';
+import RootApp from './RootApp';
 import './styles.css';
-
-const basename = import.meta.env.VITE_APP_BASENAME || undefined;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter basename={basename}>
-      <App />
+    <BrowserRouter>
+      <RootApp />
     </BrowserRouter>
   </React.StrictMode>,
 );
