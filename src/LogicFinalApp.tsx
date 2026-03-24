@@ -573,8 +573,8 @@ export default function LogicFinalApp() {
           <div className="chart-card logic-card">
             <div className="section-heading">
               <div>
-                <h3>Sign in to play</h3>
-                <p>Use your magic-link login to save progress, climb the leaderboard, and keep the cabinet running.</p>
+                <h3>Log in or register to play</h3>
+                <p>Enter your email here to log in or create your account, then use the magic link to save progress and climb the leaderboard.</p>
               </div>
             </div>
             <label>
