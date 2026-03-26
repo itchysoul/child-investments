@@ -412,26 +412,27 @@
   height: 58px;
   font-size: 2rem;
   z-index: 3;
-  transition: top 0.28s ease, left 0.28s ease, transform 0.28s ease;
+  transition: top 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: top, left;
 }
 
 .logic-kong-stage__sprite--princess {
   top: 8%;
   right: 12%;
-  animation: logic-kong-princess-wave 1.4s steps(2) infinite;
+  animation: logic-kong-princess-wave 2s ease-in-out infinite;
 }
 
 .logic-kong-stage__sprite--gorilla {
   top: 10%;
   left: 10%;
   font-size: 3rem;
-  animation: logic-kong-gorilla-stomp 1s steps(2) infinite;
+  animation: logic-kong-gorilla-stomp 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 .logic-kong-stage__sprite--player {
   top: 50%;
   left: 12%;
-  animation: logic-kong-player-run 1.3s steps(2) infinite;
+  animation: logic-kong-player-idle 2.4s ease-in-out infinite;
 }
 
 .logic-kong-stage__barrels span {
@@ -555,22 +556,22 @@
 .logic-kong-stage--victory .logic-kong-stage__sprite--player,
 .logic-kong-card--level-clear .logic-kong-stage__sprite--player,
 .logic-kong-stage--level-clear .logic-kong-stage__sprite--player {
-  animation: logic-kong-player-jump 0.65s ease-in-out infinite;
+  animation: logic-kong-player-jump 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 
 .logic-kong-stage--chomp .logic-kong-stage__sprite--gorilla,
 .logic-kong-card--chomp .logic-kong-stage__sprite--gorilla {
-  animation: logic-kong-gorilla-chomp 0.55s steps(2) infinite;
+  animation: logic-kong-gorilla-chomp 0.7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .logic-kong-stage--chomp .logic-kong-stage__sprite--player,
 .logic-kong-card--chomp .logic-kong-stage__sprite--player {
-  animation: logic-kong-player-chomp 0.55s ease-in forwards;
+  animation: logic-kong-player-chomp 0.7s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
 .logic-kong-stage--level-clear .logic-kong-stage__sprite--princess,
 .logic-kong-card--level-clear .logic-kong-stage__sprite--princess {
-  animation: logic-kong-princess-wave 0.5s steps(2) infinite;
+  animation: logic-kong-princess-wave 0.6s ease-in-out infinite;
 }
 
 .logic-kong-stage__caption {
@@ -621,12 +622,17 @@
 }
 
 @keyframes logic-kong-bob {
-  0%,
-  100% {
+  0% {
     transform: translateY(0px);
   }
-  50% {
-    transform: translateY(-8px);
+  40% {
+    transform: translateY(-9px);
+  }
+  60% {
+    transform: translateY(-7px);
+  }
+  100% {
+    transform: translateY(0px);
   }
 }
 
@@ -650,42 +656,80 @@
 }
 
 @keyframes logic-kong-gorilla-stomp {
-  0%,
-  100% {
+  0% {
     transform: translateY(0px) scale(1);
   }
-  50% {
-    transform: translateY(4px) scale(1.05);
+  15% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  40% {
+    transform: translateY(6px) scale(1.07, 0.95);
+  }
+  60% {
+    transform: translateY(2px) scale(1.03);
+  }
+  80% {
+    transform: translateY(-1px) scale(1);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
   }
 }
 
 @keyframes logic-kong-gorilla-chomp {
-  0%,
+  0% {
+    transform: translateX(0px) scale(1);
+  }
+  20% {
+    transform: translateX(-6px) scale(1.08, 0.94);
+  }
+  50% {
+    transform: translateX(22px) scale(1.16, 0.9);
+  }
+  70% {
+    transform: translateX(14px) scale(1.04);
+  }
   100% {
     transform: translateX(0px) scale(1);
   }
-  50% {
-    transform: translateX(18px) scale(1.14);
-  }
 }
 
-@keyframes logic-kong-player-run {
-  0%,
-  100% {
-    transform: translate(0px, 0px);
+@keyframes logic-kong-player-idle {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  25% {
+    transform: translate(3px, -4px) scale(1.02, 0.98);
   }
   50% {
-    transform: translate(10px, -6px);
+    transform: translate(6px, -2px) scale(1);
+  }
+  75% {
+    transform: translate(3px, -5px) scale(0.98, 1.02);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
   }
 }
 
 @keyframes logic-kong-player-jump {
-  0%,
-  100% {
+  0% {
     transform: translate(0px, 0px) scale(1);
   }
-  50% {
-    transform: translate(18px, -42px) scale(1.08);
+  15% {
+    transform: translate(0px, 4px) scale(1.08, 0.92);
+  }
+  45% {
+    transform: translate(16px, -44px) scale(0.94, 1.1);
+  }
+  65% {
+    transform: translate(20px, -38px) scale(1.02);
+  }
+  85% {
+    transform: translate(6px, -4px) scale(1.04, 0.96);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
   }
 }
 
@@ -694,19 +738,35 @@
     transform: translate(0px, 0px) scale(1);
     opacity: 1;
   }
+  30% {
+    transform: translate(-8px, 4px) scale(1.15, 0.88);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(30px, -16px) scale(0.6);
+    opacity: 0.6;
+  }
   100% {
-    transform: translate(46px, -24px) scale(0.2);
-    opacity: 0.15;
+    transform: translate(50px, -28px) scale(0.15);
+    opacity: 0.1;
   }
 }
 
 @keyframes logic-kong-princess-wave {
-  0%,
-  100% {
+  0% {
     transform: translateY(0px) rotate(0deg);
   }
+  25% {
+    transform: translateY(-5px) rotate(6deg);
+  }
   50% {
-    transform: translateY(-4px) rotate(8deg);
+    transform: translateY(-2px) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-6px) rotate(8deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
   }
 }
 
@@ -726,11 +786,17 @@
   0% {
     transform: translate(0px, 0px) rotate(0deg);
   }
-  35% {
-    transform: translate(190px, 92px) rotate(180deg);
+  20% {
+    transform: translate(100px, 48px) rotate(100deg);
   }
-  70% {
-    transform: translate(64px, 188px) rotate(320deg);
+  45% {
+    transform: translate(190px, 96px) rotate(210deg);
+  }
+  65% {
+    transform: translate(120px, 160px) rotate(320deg);
+  }
+  85% {
+    transform: translate(200px, 210px) rotate(440deg);
   }
   100% {
     transform: translate(260px, 244px) rotate(540deg);
