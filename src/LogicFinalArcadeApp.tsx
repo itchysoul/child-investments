@@ -12,7 +12,7 @@ import {
 import { supabase } from './lib/supabase';
 import './logicFinalArcade.css';
 
-type ChallengeKind = 'keyword' | 'name' | 'pair';
+type ChallengeKind = 'keyword' | 'name';
 type FeedbackTone = 'correct' | 'wrong' | 'idle';
 type StagePhase = 'playing' | 'victory' | 'chomp' | 'level-clear';
 
@@ -41,6 +41,15 @@ interface GorillaChallenge {
 const MAX_LIVES = 3;
 const LEVEL_CLEAR_DELAY_MS = 1400;
 const OUTCOME_DELAY_MS = 1000;
+const INITIAL_BRAIN_PROGRESS = 3;
+const STAGE_OPTION_POSITIONS = [
+  { left: '7%', top: '58%' },
+  { left: '39%', top: '50%' },
+  { left: '69%', top: '42%' },
+  { left: '14%', top: '80%' },
+  { left: '47%', top: '72%' },
+  { left: '73%', top: '64%' },
+];
 
 function shuffle<T>(items: T[]): T[] {
   const next = [...items];
@@ -108,32 +117,29 @@ function getAverageMastery(progress: LogicFinalProgressRecord[]): number {
 function getDifficultyLabel(progress: LogicFinalProgressRecord[], level: number): string {
   const averageMastery = getAverageMastery(progress);
   if (level <= 2 && averageMastery < 1.5) {
-    return 'Barrel Nursery';
+    return 'Training Girders';
   }
   if (level <= 4) {
-    return 'Girder Panic';
+    return 'Primary Panic';
   }
   if (level <= 6) {
-    return 'Hammer Havoc';
+    return 'Ladder Scramble';
   }
   if (averageMastery >= 4) {
-    return 'Princess Turbo Doom';
+    return 'Princess Sprint';
   }
-  return 'Kong Crisis';
+  return 'Gorilla Gauntlet';
 }
 
 function getChallengeLabel(kind: ChallengeKind): string {
   if (kind === 'keyword') {
-    return 'Barrel clue';
+    return 'Match the keyword';
   }
-  if (kind === 'name') {
-    return 'Ladder name';
-  }
-  return 'Hammer pair';
+  return 'Match the fallacy';
 }
 
 function getLevelGoal(level: number): number {
-  return clamp(3 + Math.floor((level - 1) / 2), 3, 7);
+  return clamp(7 + Math.floor((level - 1) / 2), 7, 10);
 }
 
 function pickDueTerms(progress: LogicFinalProgressRecord[], count: number): LogicFinalTerm[] {
@@ -172,21 +178,18 @@ function buildChallenge(progress: LogicFinalProgressRecord[], level: number, ser
   const mastery = progressById.get(target.id)?.masteryLevel ?? 0;
   const choiceCount = clamp(3 + Math.floor(level / 2) + Math.floor(mastery / 3), 3, 6);
   const distractors = shuffle(logicFinalTerms.filter((term) => term.id !== target.id)).slice(0, choiceCount - 1);
-  const kindIndex = (serial + level) % 3;
-  const kind: ChallengeKind = kindIndex === 0 ? 'keyword' : kindIndex === 1 ? 'name' : 'pair';
+  const kind: ChallengeKind = (serial + level) % 2 === 0 ? 'keyword' : 'name';
 
   if (kind === 'keyword') {
     const options = shuffle([
       {
         id: `${target.id}-keyword`,
         label: target.keyword,
-        secondary: target.name,
         isCorrect: true,
       },
       ...distractors.map((term) => ({
         id: `${term.id}-keyword`,
         label: term.keyword,
-        secondary: term.name,
         isCorrect: false,
       })),
     ]);
@@ -195,7 +198,7 @@ function buildChallenge(progress: LogicFinalProgressRecord[], level: number, ser
       id: `${target.id}-${kind}-${serial}`,
       kind,
       prompt: target.name,
-      promptDetail: 'Pick the keyword tell that lets the hero dodge the barrel.',
+      promptDetail: 'Tap the matching keyword floating on the girders.',
       answerTermId: target.id,
       target,
       options,
@@ -207,13 +210,11 @@ function buildChallenge(progress: LogicFinalProgressRecord[], level: number, ser
       {
         id: `${target.id}-name`,
         label: target.name,
-        secondary: target.keyword,
         isCorrect: true,
       },
       ...distractors.map((term) => ({
         id: `${term.id}-name`,
         label: term.name,
-        secondary: term.keyword,
         isCorrect: false,
       })),
     ]);
@@ -222,44 +223,41 @@ function buildChallenge(progress: LogicFinalProgressRecord[], level: number, ser
       id: `${target.id}-${kind}-${serial}`,
       kind,
       prompt: target.keyword,
-      promptDetail: 'Name the fallacy before the gorilla notices your panic.',
+      promptDetail: 'Tap the matching fallacy before the gorilla catches up.',
       answerTermId: target.id,
       target,
       options,
     };
   }
 
-  const options = shuffle([
-    {
-      id: `${target.id}-pair`,
-      label: target.name,
-      secondary: target.keyword,
-      isCorrect: true,
-    },
-    ...distractors.map((term) => ({
-      id: `${term.id}-pair`,
-      label: term.name,
-      secondary: term.keyword,
-      isCorrect: false,
-    })),
-  ]);
-
-  return {
-    id: `${target.id}-${kind}-${serial}`,
-    kind,
-    prompt: `${target.name} + ${target.keyword}`,
-    promptDetail: 'Spot the perfect pair and swing the hammer at the gorilla.',
-    answerTermId: target.id,
-    target,
-    options,
-  };
+  return null;
 }
 
 function getTimeLimit(level: number, progress: LogicFinalProgressRecord[], challenge: GorillaChallenge | null): number {
   const averageMastery = getAverageMastery(progress);
-  const typePenalty = challenge?.kind === 'pair' ? 2 : challenge?.kind === 'name' ? 1 : 0;
-  const base = 24 - Math.floor((level - 1) * 1.8) - Math.floor(averageMastery / 1.5) - typePenalty;
-  return clamp(base, 6, 24);
+  const typePenalty = challenge?.kind === 'name' ? 2 : 0;
+  const base = 40 - Math.floor((level - 1) * 2.4) - Math.floor(averageMastery / 1.5) - typePenalty;
+  return clamp(base, 12, 40);
+}
+
+function getBrainStagePosition(progressValue: number, goal: number) {
+  const ratio = clamp(progressValue / Math.max(goal, 1), 0, 1);
+  return {
+    left: `${14 + ratio * 70}%`,
+    top: `${76 - ratio * 60}%`,
+  };
+}
+
+function getGorillaStagePosition(progressValue: number, goal: number) {
+  const ratio = clamp(progressValue / Math.max(goal, 1), 0, 1);
+  return {
+    left: `${10 + ratio * 48}%`,
+    top: `${16 + ratio * 36}%`,
+  };
+}
+
+function getStageOptionPosition(index: number) {
+  return STAGE_OPTION_POSITIONS[index % STAGE_OPTION_POSITIONS.length];
 }
 
 function scheduleProgress(record: LogicFinalProgressRecord, correct: boolean): LogicFinalProgressRecord {
@@ -418,7 +416,8 @@ export default function LogicFinalArcadeApp() {
   const [statusMessage, setStatusMessage] = useState('');
   const [level, setLevel] = useState(1);
   const [lives, setLives] = useState(MAX_LIVES);
-  const [rescuedThisLevel, setRescuedThisLevel] = useState(0);
+  const [brainProgress, setBrainProgress] = useState(INITIAL_BRAIN_PROGRESS);
+  const [gorillaProgress, setGorillaProgress] = useState(0);
   const [challengeSerial, setChallengeSerial] = useState(0);
   const [activeChallenge, setActiveChallenge] = useState<GorillaChallenge | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -439,7 +438,8 @@ export default function LogicFinalArcadeApp() {
   const resetRunState = useCallback((caption: string, message: string) => {
     setLevel(1);
     setLives(MAX_LIVES);
-    setRescuedThisLevel(0);
+    setBrainProgress(INITIAL_BRAIN_PROGRESS);
+    setGorillaProgress(0);
     setChallengeSerial(0);
     setActiveChallenge(null);
     setTimeRemaining(0);
@@ -543,9 +543,12 @@ export default function LogicFinalArcadeApp() {
   );
   const difficultyLabel = useMemo(() => getDifficultyLabel(progress, level), [level, progress]);
   const stageGoal = useMemo(() => getLevelGoal(level), [level]);
-  const levelProgressPercent = useMemo(() => (stageGoal ? Math.round((rescuedThisLevel / stageGoal) * 100) : 0), [rescuedThisLevel, stageGoal]);
+  const levelProgressPercent = useMemo(() => (stageGoal ? Math.round((brainProgress / stageGoal) * 100) : 0), [brainProgress, stageGoal]);
+  const gorillaPercent = useMemo(() => (stageGoal ? Math.round((gorillaProgress / stageGoal) * 100) : 0), [gorillaProgress, stageGoal]);
   const currentTimeLimit = useMemo(() => getTimeLimit(level, progress, activeChallenge), [activeChallenge, level, progress]);
   const timerPercent = useMemo(() => (currentTimeLimit ? Math.round((timeRemaining / currentTimeLimit) * 100) : 0), [currentTimeLimit, timeRemaining]);
+  const brainStageStyle = useMemo(() => getBrainStagePosition(brainProgress, stageGoal), [brainProgress, stageGoal]);
+  const gorillaStageStyle = useMemo(() => getGorillaStagePosition(gorillaProgress, stageGoal), [gorillaProgress, stageGoal]);
 
   const queueNextChallenge = useCallback(
     (nextLevel: number, nextProgress: LogicFinalProgressRecord[], serial: number) => {
@@ -604,41 +607,42 @@ export default function LogicFinalArcadeApp() {
       setSelectedOptionId(optionId);
 
       const successMessage =
-        rescuedThisLevel + 1 >= stageGoal
-          ? 'Direct hit. The gorilla tumbles, the princess cheers, and the next stage gets nastier.'
-          : 'Correct. You bonked a barrel away and climbed one girder higher.';
+        brainProgress + 1 >= stageGoal
+          ? 'Correct. The brain reaches the princess and the next level gets harder.'
+          : 'Correct. The brain scrambles one step closer to the princess.';
       const failureMessage =
         reason === 'timeout'
-          ? 'Too slow. The gorilla got hungry and you looked very edible.'
-          : 'Wrong answer. The gorilla eats you with alarming enthusiasm.';
+          ? 'Too slow. The gorilla stomps closer while the brain hesitates.'
+          : 'Wrong answer. The brain slips back and the gorilla lurches forward.';
 
       await applyAnswer(activeChallenge.answerTermId, correct, successMessage, failureMessage);
 
       if (correct) {
-        const nextRescuedCount = rescuedThisLevel + 1;
-        setRescuedThisLevel(nextRescuedCount);
+        const nextBrainProgress = brainProgress + 1;
+        setBrainProgress(nextBrainProgress);
 
-        if (nextRescuedCount >= stageGoal) {
+        if (nextBrainProgress >= stageGoal) {
           const nextLevel = level + 1;
           setPhase('level-clear');
-          setSceneCaption('Princess rescued. The gorilla wobble-laughs into the void while the stage speeds up.');
+          setSceneCaption('The brain reaches the princess. New level, tougher answers, meaner gorilla.');
           window.setTimeout(() => {
             setLevel(nextLevel);
             setLives((current) => clamp(current + 1, 1, MAX_LIVES));
-            setRescuedThisLevel(0);
+            setBrainProgress(INITIAL_BRAIN_PROGRESS);
+            setGorillaProgress(0);
             setChallengeSerial((current) => current + 1);
             setActiveChallenge(null);
             setSelectedOptionId(null);
             setTimeRemaining(0);
             setPhase('playing');
             setResolving(false);
-            setSceneCaption('New girders, faster timer, same rude gorilla.');
+            setSceneCaption('Fresh stage. The brain races upward while the gorilla plots revenge.');
           }, LEVEL_CLEAR_DELAY_MS);
           return;
         }
 
         setPhase('victory');
-        setSceneCaption('The hero lands a cartoon hammer bonk. The gorilla is embarrassed but still loud.');
+        setSceneCaption('Correct. The brain hops closer to the princess while the gorilla growls below.');
         window.setTimeout(() => {
           setChallengeSerial((current) => current + 1);
           setActiveChallenge(null);
@@ -646,30 +650,57 @@ export default function LogicFinalArcadeApp() {
           setTimeRemaining(0);
           setPhase('playing');
           setResolving(false);
-          setSceneCaption('Keep climbing. The princess is waving frantically.');
+          setSceneCaption('Keep matching. The princess is still just out of reach.');
         }, OUTCOME_DELAY_MS);
         return;
       }
 
-      const nextLives = lives - 1;
-      setLives(Math.max(0, nextLives));
-      setRescuedThisLevel(0);
+      const nextBrainProgress = Math.max(1, brainProgress - 1);
+      const nextGorillaProgress = gorillaProgress + 1;
+      const gorillaCaughtBrain = nextGorillaProgress >= nextBrainProgress;
+
+      setBrainProgress(nextBrainProgress);
+      setGorillaProgress(nextGorillaProgress);
       setPhase('chomp');
-      setSceneCaption(reason === 'timeout' ? 'Timer expired. The gorilla chews with theatrical confidence.' : 'Wrong answer. Instant gorilla lunch.');
+      setSceneCaption(
+        gorillaCaughtBrain
+          ? 'The gorilla reaches the brain. You lose the chase and reset the stage.'
+          : reason === 'timeout'
+            ? 'Too slow. The brain freezes and the gorilla charges closer.'
+            : 'Wrong answer. The brain slides back and the gorilla closes the gap.',
+      );
 
       window.setTimeout(() => {
-        if (nextLives <= 0) {
-          setLevel(1);
-          setLives(MAX_LIVES);
-          setRescuedThisLevel(0);
+        if (gorillaCaughtBrain) {
+          const nextLives = lives - 1;
+          setLives(Math.max(0, nextLives));
+
+          if (nextLives <= 0) {
+            setLevel(1);
+            setLives(MAX_LIVES);
+            setBrainProgress(INITIAL_BRAIN_PROGRESS);
+            setGorillaProgress(0);
+            setChallengeSerial((current) => current + 1);
+            setActiveChallenge(null);
+            setSelectedOptionId(null);
+            setTimeRemaining(0);
+            setPhase('playing');
+            setResolving(false);
+            setStatusMessage('Game over. New run started with a longer timer and a less cocky brain.');
+            setSceneCaption('Fresh run. Same princess. Same gorilla. Clearer answers.');
+            return;
+          }
+
+          setBrainProgress(INITIAL_BRAIN_PROGRESS);
+          setGorillaProgress(0);
           setChallengeSerial((current) => current + 1);
           setActiveChallenge(null);
           setSelectedOptionId(null);
           setTimeRemaining(0);
           setPhase('playing');
           setResolving(false);
-          setStatusMessage('Game over. New run started at level 1. The gorilla remains extremely smug.');
-          setSceneCaption('Fresh run. Same princess. Same gorilla. Slightly more spite.');
+          setStatusMessage('The gorilla caught the brain. One life lost. Resetting the chase.');
+          setSceneCaption('The brain gets another shot. Stay ahead of the gorilla.');
           return;
         }
 
@@ -679,10 +710,10 @@ export default function LogicFinalArcadeApp() {
         setTimeRemaining(0);
         setPhase('playing');
         setResolving(false);
-        setSceneCaption('Respawn! Try again before the gorilla starts seasoning the air.');
+        setSceneCaption('Still alive. Pick the next match before the gorilla gains more ground.');
       }, OUTCOME_DELAY_MS + 250);
     },
-    [activeChallenge, applyAnswer, level, lives, rescuedThisLevel, resolving, stageGoal],
+    [activeChallenge, applyAnswer, brainProgress, gorillaProgress, level, lives, resolving, stageGoal],
   );
 
   useEffect(() => {
@@ -778,7 +809,7 @@ export default function LogicFinalArcadeApp() {
       return;
     }
 
-    resetRunState('Fresh girders. Deep breath. The gorilla still looks disrespectful.', 'Run restarted. Rescue the princess with style.');
+    resetRunState('Fresh girders. Deep breath. The gorilla still looks disrespectful.', 'Run restarted. Match names to keywords and keep the brain moving.');
   }, [resetRunState, sessionEmail]);
 
   if (!supabase) {
@@ -814,7 +845,7 @@ export default function LogicFinalArcadeApp() {
         <div className="logic-kong-hero__copy">
           <p className="logic-kong-header__eyebrow">Current cabinet mood</p>
           <h2>{difficultyLabel}</h2>
-          <p>Each level shortens the clock, mixes in trickier prompts, and rewards clean streaks. One bad answer means a very rude gorilla chomp animation.</p>
+          <p>Match one clue at a time, keep the brain ahead of the gorilla, and reach the princess before the chase collapses.</p>
         </div>
         <div className="logic-kong-hero__marquee" aria-hidden="true">
           <span>🦍</span>
@@ -879,7 +910,8 @@ export default function LogicFinalArcadeApp() {
                 <StatTile label="lives" value={Array.from({ length: Math.max(lives, 0) }).map(() => '♥').join(' ') || '0'} />
               </div>
               <div className="logic-kong-meter-grid">
-                <MeterCard label="Princess rescue" value={`${rescuedThisLevel}/${stageGoal}`} percent={levelProgressPercent} accent="gold" />
+                <MeterCard label="Brain progress" value={`${brainProgress}/${stageGoal}`} percent={levelProgressPercent} accent="gold" />
+                <MeterCard label="Gorilla chase" value={`${gorillaProgress}/${stageGoal}`} percent={gorillaPercent} accent={gorillaPercent >= 70 ? 'danger' : 'cyan'} />
                 <MeterCard label="Timer" value={`${timeRemaining}s`} percent={timerPercent} accent={timerPercent <= 35 ? 'danger' : 'cyan'} />
               </div>
               <div className="logic-kong-actions">
@@ -893,18 +925,17 @@ export default function LogicFinalArcadeApp() {
               <div className="logic-kong-stage__hud">
                 <span>Stage {level}</span>
                 <span>{getChallengeLabel(activeChallenge?.kind ?? 'keyword')}</span>
-                <span>{currentTimeLimit}s base timer</span>
+                <span>Reach {stageGoal} to save the princess</span>
               </div>
-              <div className={`logic-kong-stage logic-kong-stage--${phase}`} aria-hidden="true">
+              <div className={`logic-kong-stage logic-kong-stage--${phase}`}>
                 <div className="logic-kong-stage__girder logic-kong-stage__girder--top" />
                 <div className="logic-kong-stage__girder logic-kong-stage__girder--mid" />
                 <div className="logic-kong-stage__girder logic-kong-stage__girder--bottom" />
                 <div className="logic-kong-stage__ladder logic-kong-stage__ladder--left" />
                 <div className="logic-kong-stage__ladder logic-kong-stage__ladder--right" />
                 <div className="logic-kong-stage__sprite logic-kong-stage__sprite--princess">👸</div>
-                <div className="logic-kong-stage__sprite logic-kong-stage__sprite--gorilla">🦍</div>
-                <div className="logic-kong-stage__sprite logic-kong-stage__sprite--player">🧠</div>
-                <div className="logic-kong-stage__sprite logic-kong-stage__sprite--hammer">🔨</div>
+                <div className="logic-kong-stage__sprite logic-kong-stage__sprite--gorilla" style={gorillaStageStyle}>🦍</div>
+                <div className="logic-kong-stage__sprite logic-kong-stage__sprite--player" style={brainStageStyle}>🧠</div>
                 <div className="logic-kong-stage__barrels">
                   <span>🛢️</span>
                   <span>🛢️</span>
@@ -915,44 +946,36 @@ export default function LogicFinalArcadeApp() {
                   <span>✦</span>
                   <span>✦</span>
                 </div>
-              </div>
-              <p className="logic-kong-stage__caption">{sceneCaption}</p>
-            </div>
-
-            <div className="chart-card logic-kong-card logic-kong-card--challenge">
-              <div className="section-heading">
-                <div>
-                  <h3>{activeChallenge ? getChallengeLabel(activeChallenge.kind) : 'Loading stage'}</h3>
-                  <p>{activeChallenge?.promptDetail ?? 'The gorilla is choosing a new insult.'}</p>
-                </div>
-              </div>
-
-              {activeChallenge ? (
-                <>
-                  <div className="logic-kong-prompt">
-                    <strong>{activeChallenge.prompt}</strong>
-                    <p>Clear {stageGoal} prompts to rescue the princess on this level. Wrong answers reset the rescue meter and cost a life.</p>
-                  </div>
-                  <div className="logic-kong-options">
-                    {activeChallenge.options.map((option) => {
-                      const stateClass = option.id === selectedOptionId ? 'logic-kong-option--selected' : '';
+                {activeChallenge ? (
+                  <>
+                    <div className="logic-kong-stage__prompt">
+                      <span className="logic-kong-stage__prompt-eyebrow">{getChallengeLabel(activeChallenge.kind)}</span>
+                      <strong>{activeChallenge.prompt}</strong>
+                      <p>{activeChallenge.promptDetail}</p>
+                    </div>
+                    {activeChallenge.options.map((option, index) => {
+                      const stateClass = option.id === selectedOptionId ? 'logic-kong-stage__answer--selected' : '';
                       return (
                         <button
                           key={option.id}
-                          className={`logic-kong-option ${stateClass}`}
+                          className={`logic-kong-stage__answer ${stateClass}`}
+                          style={getStageOptionPosition(index)}
                           onClick={() => void handleAnswer(option)}
                           disabled={resolving || phase !== 'playing'}
                         >
-                          <strong>{option.label}</strong>
-                          {option.secondary ? <small>{option.secondary}</small> : null}
+                          {option.label}
                         </button>
                       );
                     })}
+                  </>
+                ) : (
+                  <div className="logic-kong-stage__prompt logic-kong-stage__prompt--loading">
+                    <strong>Loading the next clue...</strong>
+                    <p>The gorilla is rummaging through the fallacies.</p>
                   </div>
-                </>
-              ) : (
-                <div className="empty-state">Spooling up a fresh challenge...</div>
-              )}
+                )}
+              </div>
+              <p className="logic-kong-stage__caption">{sceneCaption}</p>
             </div>
           </div>
 
@@ -962,14 +985,14 @@ export default function LogicFinalArcadeApp() {
               <div className="section-heading">
                 <div>
                   <h3>How this cabinet works</h3>
-                  <p>The data model still tracks score, streaks, and mastery. The presentation is now 100% gorilla nonsense.</p>
+                  <p>One clue appears at a time inside the stage. You should never need to look away from the chase to answer.</p>
                 </div>
               </div>
               <div className="logic-kong-rules">
-                <RuleCard title="Answer fast" body="Every stage cuts the timer down harder, and tougher prompt types shave off more seconds." />
-                <RuleCard title="Miss once" body="The gorilla eats the player, your rescue progress resets, and you lose a life." />
-                <RuleCard title="Clear the stage" body="Get enough prompts right to smack the gorilla, save the princess, and jump to a meaner level." />
-                <RuleCard title="Keep the streak" body="Correct answers still feed the leaderboard, mastery, and spaced-repetition scheduling behind the scenes." />
+                <RuleCard title="Read one clue" body="The floating label shows either a fallacy name or a keyword. Tap the single matching answer inside the stage." />
+                <RuleCard title="Correct answer" body="The brain moves closer to the princess. Reach the goal line to clear the level and make the next stage harder." />
+                <RuleCard title="Wrong answer" body="The brain slips back and the gorilla moves closer. If the gorilla reaches the brain, you lose a life and the chase resets." />
+                <RuleCard title="Longer opening timer" body="Early levels now start much slower so new players can learn the matches before the pace ramps up." />
               </div>
             </div>
           </div>

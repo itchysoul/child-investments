@@ -277,7 +277,7 @@
 }
 
 .logic-kong-meter-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .logic-kong-meter-card {
@@ -326,17 +326,27 @@
   letter-spacing: 0.12em;
   font-size: 0.72rem;
   color: #dc2626;
+  font-weight: 800;
 }
 
 .logic-kong-stage {
   position: relative;
-  min-height: 360px;
+  min-height: 520px;
   border-radius: 24px;
   overflow: hidden;
   border: 2px solid rgba(37, 99, 235, 0.34);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.54), transparent 40%),
     linear-gradient(180deg, rgba(224, 242, 254, 0.98), rgba(254, 249, 195, 0.98) 58%, rgba(191, 219, 254, 0.98));
+}
+
+.logic-kong-stage::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.28));
+  pointer-events: none;
 }
 
 .logic-kong-stage__girder,
@@ -396,6 +406,8 @@
   width: 58px;
   height: 58px;
   font-size: 2rem;
+  z-index: 3;
+  transition: top 0.28s ease, left 0.28s ease, transform 0.28s ease;
 }
 
 .logic-kong-stage__sprite--princess {
@@ -405,22 +417,16 @@
 }
 
 .logic-kong-stage__sprite--gorilla {
-  top: 6%;
+  top: 10%;
   left: 10%;
   font-size: 3rem;
   animation: logic-kong-gorilla-stomp 1s steps(2) infinite;
 }
 
 .logic-kong-stage__sprite--player {
-  bottom: 10%;
+  top: 50%;
   left: 12%;
   animation: logic-kong-player-run 1.3s steps(2) infinite;
-}
-
-.logic-kong-stage__sprite--hammer {
-  bottom: 12%;
-  left: 28%;
-  animation: logic-kong-hammer-glow 0.9s ease-in-out infinite;
 }
 
 .logic-kong-stage__barrels span {
@@ -428,6 +434,7 @@
   left: 26%;
   font-size: 1.8rem;
   animation: logic-kong-barrel-roll 4.2s linear infinite;
+  z-index: 1;
 }
 
 .logic-kong-stage__barrels span:nth-child(2) {
@@ -458,6 +465,82 @@
   animation-delay: 0.5s;
 }
 
+.logic-kong-stage__prompt {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(76%, 540px);
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 2px solid rgba(37, 99, 235, 0.28);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.16);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  z-index: 4;
+}
+
+.logic-kong-stage__prompt-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #dc2626;
+}
+
+.logic-kong-stage__prompt strong {
+  display: block;
+  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  color: #172554;
+}
+
+.logic-kong-stage__prompt p {
+  margin: 6px 0 0;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.logic-kong-stage__prompt--loading {
+  top: 28%;
+}
+
+.logic-kong-stage__answer {
+  position: absolute;
+  min-width: 150px;
+  max-width: 180px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.72);
+  color: #172554;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+  backdrop-filter: blur(8px);
+  z-index: 4;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.logic-kong-stage__answer:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.22);
+}
+
+.logic-kong-stage__answer:disabled {
+  cursor: not-allowed;
+}
+
+.logic-kong-stage__answer--selected {
+  border-color: rgba(37, 99, 235, 0.72);
+  background: rgba(219, 234, 254, 0.96);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14), 0 18px 28px rgba(37, 99, 235, 0.18);
+}
+
 .logic-kong-stage--victory .logic-kong-stage__sprite--player,
 .logic-kong-card--level-clear .logic-kong-stage__sprite--player,
 .logic-kong-stage--level-clear .logic-kong-stage__sprite--player {
@@ -484,48 +567,28 @@
   padding: 0 6px;
   font-size: 0.94rem;
   color: #172554;
-}
-
-.logic-kong-prompt {
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(37, 99, 235, 0.18);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.logic-kong-prompt strong {
-  font-size: 1.2rem;
-}
-
-.logic-kong-options {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.logic-kong-option {
-  width: 100%;
-  padding: 16px;
-  text-align: left;
-  color: #172554;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.logic-kong-option:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.18);
-}
-
-.logic-kong-option:disabled {
-  cursor: not-allowed;
-}
-
-.logic-kong-option--selected {
-  border-color: rgba(37, 99, 235, 0.58);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2), 0 18px 28px rgba(37, 99, 235, 0.16);
+  font-weight: 700;
 }
 
 .logic-kong-rule {
   padding: 16px;
+}
+
+.logic-kong-rule p,
+.logic-kong-rule strong,
+.logic-kong-hero p,
+.logic-kong-card p,
+.logic-kong-card small,
+.logic-kong-card span,
+.logic-kong-leaderboard__row p {
+  color: #1e3a8a;
+}
+
+.logic-kong-rule strong,
+.logic-kong-leaderboard__row strong,
+.logic-kong-stat strong,
+.logic-kong-meter-card strong {
+  color: #172554;
 }
 
 .logic-kong-leaderboard__row {
@@ -676,7 +739,6 @@
 @media (max-width: 1080px) {
   .logic-kong-grid,
   .logic-kong-hero,
-  .logic-kong-options,
   .logic-kong-meter-grid,
   .logic-kong-stats {
     grid-template-columns: 1fr;
@@ -708,6 +770,18 @@
   }
 
   .logic-kong-stage {
-    min-height: 320px;
+    min-height: 620px;
+  }
+
+  .logic-kong-stage__prompt {
+    width: min(88%, 540px);
+    top: 16%;
+  }
+
+  .logic-kong-stage__answer {
+    min-width: 0;
+    max-width: 42%;
+    font-size: 0.92rem;
+    padding: 10px 12px;
   }
 }
