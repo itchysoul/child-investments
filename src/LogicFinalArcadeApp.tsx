@@ -355,8 +355,8 @@ async function hydrateLogicFinalAuthCallback() {
   const currentUrl = new URL(window.location.href);
   const hashParams = new URLSearchParams(currentUrl.hash.startsWith('#') ? currentUrl.hash.slice(1) : currentUrl.hash);
   const searchCode = currentUrl.searchParams.get('code');
-  const tokenHash = currentUrl.searchParams.get('token_hash');
-  const authType = currentUrl.searchParams.get('type');
+  const tokenHash = currentUrl.searchParams.get('token_hash') ?? hashParams.get('token_hash');
+  const authType = currentUrl.searchParams.get('type') ?? hashParams.get('type');
   const implicitAccessToken = hashParams.get('access_token');
   const implicitRefreshToken = hashParams.get('refresh_token');
   const authError = currentUrl.searchParams.get('error_description') ?? hashParams.get('error_description');
@@ -390,6 +390,14 @@ async function hydrateLogicFinalAuthCallback() {
   }
 
   if (implicitAccessToken && implicitRefreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: implicitAccessToken,
+      refresh_token: implicitRefreshToken,
+    });
+    if (error) {
+      clearAuthCallbackUrl();
+      throw error;
+    }
     clearAuthCallbackUrl();
     return 'implicit';
   }
