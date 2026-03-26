@@ -379,7 +379,7 @@ async function hydrateLogicFinalAuthCallback() {
   if (tokenHash && authType) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type: authType as 'email' | 'recovery' | 'invite' | 'email_change' | 'magiclink',
+      type: authType as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change' | 'magiclink',
     });
     if (error) {
       clearAuthCallbackUrl();
