@@ -330,6 +330,73 @@ function updateProfile(
   };
 }
 
+function getLogicFinalRedirectUrl(): string {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function clearAuthCallbackUrl(): void {
+  const sanitizedUrl = new URL(window.location.href);
+  sanitizedUrl.hash = '';
+  sanitizedUrl.searchParams.delete('code');
+  sanitizedUrl.searchParams.delete('token_hash');
+  sanitizedUrl.searchParams.delete('type');
+  sanitizedUrl.searchParams.delete('next');
+  sanitizedUrl.searchParams.delete('error');
+  sanitizedUrl.searchParams.delete('error_code');
+  sanitizedUrl.searchParams.delete('error_description');
+  window.history.replaceState(window.history.state, '', sanitizedUrl.toString());
+}
+
+async function hydrateLogicFinalAuthCallback() {
+  if (!supabase) {
+    return null;
+  }
+
+  const currentUrl = new URL(window.location.href);
+  const hashParams = new URLSearchParams(currentUrl.hash.startsWith('#') ? currentUrl.hash.slice(1) : currentUrl.hash);
+  const searchCode = currentUrl.searchParams.get('code');
+  const tokenHash = currentUrl.searchParams.get('token_hash');
+  const authType = currentUrl.searchParams.get('type');
+  const implicitAccessToken = hashParams.get('access_token');
+  const implicitRefreshToken = hashParams.get('refresh_token');
+  const authError = currentUrl.searchParams.get('error_description') ?? hashParams.get('error_description');
+
+  if (authError) {
+    clearAuthCallbackUrl();
+    throw new Error(decodeURIComponent(authError.replace(/\+/g, ' ')));
+  }
+
+  if (searchCode) {
+    const { error } = await supabase.auth.exchangeCodeForSession(searchCode);
+    if (error) {
+      clearAuthCallbackUrl();
+      throw error;
+    }
+    clearAuthCallbackUrl();
+    return 'pkce';
+  }
+
+  if (tokenHash && authType) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: authType as 'email' | 'recovery' | 'invite' | 'email_change' | 'magiclink',
+    });
+    if (error) {
+      clearAuthCallbackUrl();
+      throw error;
+    }
+    clearAuthCallbackUrl();
+    return 'otp';
+  }
+
+  if (implicitAccessToken && implicitRefreshToken) {
+    clearAuthCallbackUrl();
+    return 'implicit';
+  }
+
+  return null;
+}
+
 export default function LogicFinalArcadeApp() {
   const [authEmail, setAuthEmail] = useState('');
   const [authBusy, setAuthBusy] = useState<'signin' | 'signout' | null>(null);
@@ -385,6 +452,12 @@ export default function LogicFinalArcadeApp() {
 
     async function syncSession() {
       try {
+        await hydrateLogicFinalAuthCallback();
+
+        if (cancelled) {
+          return;
+        }
+
         const {
           data: { session },
         } = await authClient.auth.getSession();
@@ -641,7 +714,7 @@ export default function LogicFinalArcadeApp() {
       const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
-          emailRedirectTo: window.location.href,
+          emailRedirectTo: getLogicFinalRedirectUrl(),
         },
       });
 
